@@ -22,12 +22,11 @@
 
 // for DHT11 temp/humidity
 #include <DHT.h>
+#define DHT_TYPE DHT11
 
 // Pin definitions
 // Definte display reset pin, -1 for RST
 #define OLED_RESET -1
-
-#define DHT_TYPE DHT11
 #define DHT_PIN D4
 #define LED_PIN BUILTIN_LED
 #define MOISTURE_PIN A0
