@@ -23,17 +23,23 @@
 // for DHT11 temp/humidity
 #include <DHT.h>
 
+// Pin definitions
 // Definte display reset pin, -1 for RST
 #define OLED_RESET -1
 
 #define DHT_TYPE DHT11
 #define DHT_PIN D4
+#define LED_PIN BUILTIN_LED
+#define MOISTURE_PIN A0
+
+// use temperature unit F if true, else C
 bool temperatureF = true;
 
 // Definte soil moisture sensor type
 //#define RESISTIVE_SENSOR
 #define CAPACITIVE_SENSOR
 
+// Define different calibration settings depending on soil sensor type
 #ifdef RESISTIVE_SENSOR
 int dryThresh = 700;
 int wetThresh = 400;
@@ -86,11 +92,11 @@ void setup() {
   Serial.print(ssid);
   Serial.println(" ...");
 
-  pinMode(led_pin, OUTPUT);
+  pinMode(LED_PIN, OUTPUT);
 }
 
 void readMoisture() {
-  moisture = analogRead(moisture_pin);
+  moisture = analogRead(MOISTURE_PIN);
   Serial.print("Moisture: ");
   Serial.println(moisture);
 }
