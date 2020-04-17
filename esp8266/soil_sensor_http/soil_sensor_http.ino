@@ -1,5 +1,5 @@
 //
-// soil_sensor.ino
+// soil_sensor_http.ino
 // Naookie Sato
 //
 // Created by Naookie Sato on 04/14/2020
@@ -22,7 +22,7 @@ int cold_boot;
 #include <NTPClient.h>
 #include <WiFiUdp.h>
 #define TIME_ZONE_OFFSET -25200
-#define SLEEP_MINUTE_INTERVAL 2
+#define SLEEP_MINUTE_INTERVAL 15
 #define SLEEP_SECOND_INTERVAL 60
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org");
@@ -150,6 +150,8 @@ String createSensorYaml() {
   addVal(yml, "temperature-unit", temperatureF ? "F" : "C");
   addVal(yml, "humidity", humidity);
   addVal(yml, "water-level", waterLevel);
+  addVal(yml, "date", timeClient.getFormattedDate());
+  addVal(yml, "time", timeClient.getFormattedTime());
   return yml;
 }
 
@@ -162,7 +164,10 @@ void setup() {
   state.registerVar(&cold_boot);
   cold_boot = !state.loadFromRTC();
   state.saveToRTC();
-  
+
+  timeClient.begin();
+  timeClient.setTimeOffset(TIME_ZONE_OFFSET);
+ 
   dht.begin();
 
   WiFi.mode(WIFI_STA);
@@ -179,6 +184,7 @@ void setup() {
 
   readMoisture();
   readDHT();
+  readNTP();
 
   auto yml = createSensorYaml();
   Serial.println("sending yml:");
@@ -190,9 +196,6 @@ void setup() {
   Serial.print("http request complete, return code: ");
   Serial.println(retCode);
 
-  timeClient.begin();
-  timeClient.setTimeOffset(TIME_ZONE_OFFSET);
-  readNTP();
   ESP.deepSleep(sleepTime);
 }
 
