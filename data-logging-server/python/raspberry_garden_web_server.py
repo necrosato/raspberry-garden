@@ -73,7 +73,19 @@ class RaspberryGardenWebServer:
         '''
         Returns node location and arm status:
         '''
-        return 'TODO'
+        response = ''
+        for path in os.listdir(ymlDir):
+            full_path = os.path.join(ymlDir, path)
+            if os.path.isdir(full_path):
+                response += '---</br>'
+                latest_file = max([os.path.join(full_path, f) for f in os.listdir(full_path)], key=os.path.getctime)
+                with open(latest_file, 'r') as f:
+                    yml = yaml.load(f)
+                    for key in yml:
+                        response += key + ': '
+                        response += str(yml[key]) + '</br>'
+                        
+        return response
 
 
     def update(self):
@@ -105,7 +117,7 @@ class RaspberryGardenWebServer:
 
 def main():
     server = RaspberryGardenWebServer()
-    server.run(5000)
+    server.run(5050)
 
 
 if __name__ == '__main__':

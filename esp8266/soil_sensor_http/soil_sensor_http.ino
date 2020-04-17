@@ -14,6 +14,7 @@
 // This might need to be included when using some esp8266 arduino cores.
 //#include "pins_arduino.h"
 
+// Persistent storage between deep sleep cycles
 #include <RTCVars.h>
 RTCVars state;
 int cold_boot;
@@ -72,7 +73,7 @@ int wifi_status;
 
 String ip;
 int moisture;
-String waterState;
+String waterLevel;
 float temperature;
 float humidity;
 
@@ -81,11 +82,11 @@ void readMoisture() {
   Serial.print("Moisture: ");
   Serial.println(moisture);
   if (moisture > dryThresh) {
-    waterState = "DRY";
+    waterLevel = "DRY";
   } else if (moisture < wetThresh) {
-    waterState = "WET";
+    waterLevel = "WET";
   } else {
-    waterState = "OK";
+    waterLevel = "OK";
   }
 }
 
@@ -146,8 +147,9 @@ String createSensorYaml() {
   addVal(yml, "ip-address", ip);
   addVal(yml, "moisture", moisture);
   addVal(yml, "temperature", temperature);
+  addVal(yml, "temperature-unit", temperatureF ? "F" : "C");
   addVal(yml, "humidity", humidity);
-  addVal(yml, "water-state", waterState);
+  addVal(yml, "water-level", waterLevel);
   return yml;
 }
 
