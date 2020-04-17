@@ -80,7 +80,10 @@ class RaspberryGardenWebServer:
         dt = datetime.datetime.now(pytz.timezone('America/Los_Angeles'))
         ymlStr = request.data.decode('utf-8')
         yml = yaml.load(ymlStr);
-        ymlFileName = ymlDir + yml['location'] + '_' + str(dt.date()) + '.yml';
+        locationDir = ymlDir + yml['location'] + '/';
+        if not os.path.exists(locationDir):
+            os.makedirs(locationDir)
+        ymlFileName = locationDir + yml['location'] + '_' + str(dt.date()) + '_' + str(dt.time()) + '.yml';
         with open(ymlFileName, 'w') as f:
             f.write(ymlStr);
         print(yml)
