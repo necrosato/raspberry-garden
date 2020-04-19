@@ -11,6 +11,7 @@
 #include <ESP8266HTTPClient.h>
 #include <stdlib.h>
 #include "config.h"
+#include "utils.h"
 // This might need to be included when using some esp8266 arduino cores.
 //#include "pins_arduino.h"
 
@@ -23,11 +24,12 @@ int cold_boot;
 #include <WiFiUdp.h>
 #define TIME_ZONE_OFFSET -25200
 #define SLEEP_MINUTE_INTERVAL 15
-#define SLEEP_SECOND_INTERVAL 60
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org");
 int minute;
+int nextMinute;
 int second;
+int nextSecond;
 int sleepTime;
 
 // for DHT11 temp/humidity
@@ -35,7 +37,7 @@ int sleepTime;
 #define DHT_TYPE DHT11
 
 // Pin definitions
-#define DHT_PIN D4
+#define DHT_PIN D5
 #define LED_PIN BUILTIN_LED
 #define MOISTURE_PIN A0
 
@@ -55,21 +57,7 @@ int dryThresh = 700;
 int wetThresh = 550;
 #endif
 
-// NOTE: TO ACTUALLY CONNECT 1306 128x64 LCD Display I2C - 
-/*
-    arduino I2C standards define the following:
-        SDA = GPIO4
-        SCL = GPIO5
-
-    so to connect an I2C Display to NodeMCU: 
-        SDA = GPIO4 = D2 (NodeMCU Pin - see ./pins_arduino.h)
-        SCL = GPIO5 = D1 (NodeMCU Pin - see ./pins_arduino.h)
-    
-*/
-
 DHT dht(DHT_PIN, DHT_TYPE);
-
-int wifi_status;
 
 String ip;
 int moisture;
@@ -90,25 +78,6 @@ void readMoisture() {
   }
 }
 
-bool checkConnection() {
-  int wifi_status_last = wifi_status;
-  wifi_status = WiFi.status();
-  if (wifi_status != wifi_status_last) {
-    if(wifi_status == WL_CONNECTED){
-      Serial.println("");
-      Serial.println("Your ESP is connected!");
-      Serial.println("Your IP address is: ");
-      Serial.println(WiFi.localIP());
-      ip = WiFi.localIP().toString();
-    } else {
-      Serial.println("");
-      Serial.println("WiFi not connected");
-      ip = "Connecting...";
-    }
-  }
-  return wifi_status == WL_CONNECTED;
-}
-
 void readDHT() {
   temperature = dht.readTemperature(temperatureF);
   humidity = dht.readHumidity();
@@ -116,50 +85,63 @@ void readDHT() {
 
 void readNTP() {
   while (!timeClient.update()) {
-    delay(500);
+    blinkLed(250, LED_PIN);
   }
   minute = timeClient.getMinutes();
   second = timeClient.getSeconds();
-  int minutesLeft = SLEEP_MINUTE_INTERVAL - (minute % SLEEP_MINUTE_INTERVAL) - 1;
-  // woke up before minute mark, skip to next interval
-  if (!cold_boot && minutesLeft == 0 && SLEEP_MINUTE_INTERVAL != 1) {
-    minutesLeft += SLEEP_MINUTE_INTERVAL;
-  }
-  int secondsLeft = SLEEP_SECOND_INTERVAL - (second % SLEEP_SECOND_INTERVAL);
+  nextMinute = minute + SLEEP_MINUTE_INTERVAL - (minute % SLEEP_MINUTE_INTERVAL);
+  nextSecond = 60;
+  Serial.print("Current NTP time: ");
   Serial.println(timeClient.getFormattedTime());
-  Serial.print("sleep for minutes: ");
-  Serial.println(minutesLeft);
-  Serial.print("sleep for seconds: ");
-  Serial.println(secondsLeft);
-  sleepTime = (minutesLeft * 60 + secondsLeft) * 1000000;
 }
 
-template <class T>
-void addVal(String & x, String key, T val) {
-  x += key + ": ";
-  x += String(val);
-  x += "\n";
+bool wokeUpEarly() {
+  if (cold_boot) {
+    return false;
+  }
+  int minutesLeft = nextMinute - minute;
+  return !(minutesLeft == SLEEP_MINUTE_INTERVAL || SLEEP_MINUTE_INTERVAL == 1);
+}
+
+void setSleepTime() {
+  int sleepMinutes = nextMinute - minute - 1;
+  int sleepSeconds = nextSecond - second;
+
+  Serial.print("sleep for minutes: ");
+  Serial.println(sleepMinutes);
+  Serial.print("sleep for seconds: ");
+  Serial.println(sleepSeconds);
+  sleepTime = (sleepMinutes * 60 + sleepSeconds) * 1000000;
 }
 
 String createSensorYaml() {
   String yml = "---\n";
-  addVal(yml, "location", location);
-  addVal(yml, "ip-address", ip);
-  addVal(yml, "moisture", moisture);
-  addVal(yml, "temperature", temperature);
-  addVal(yml, "temperature-unit", temperatureF ? "F" : "C");
-  addVal(yml, "humidity", humidity);
-  addVal(yml, "water-level", waterLevel);
-  addVal(yml, "date", timeClient.getFormattedDate());
-  addVal(yml, "time", timeClient.getFormattedTime());
+  addKeyVal(yml, "location", location);
+  addKeyVal(yml, "ip-address", ip);
+  addKeyVal(yml, "moisture", moisture);
+  addKeyVal(yml, "temperature", temperature);
+  addKeyVal(yml, "temperature-unit", temperatureF ? "F" : "C");
+  addKeyVal(yml, "humidity", humidity);
+  addKeyVal(yml, "water-level", waterLevel);
+  addKeyVal(yml, "date", timeClient.getFormattedDate());
+  addKeyVal(yml, "time", timeClient.getFormattedTime());
   return yml;
 }
 
+void sendYaml() {
+  auto yml = createSensorYaml();
+  Serial.println("sending yml:");
+  Serial.println(yml);
+  HTTPClient http;
+  http.begin(request);
+  http.addHeader("Content-Type", "text/plain");
+  int retCode = http.POST(yml);
+  Serial.print("http request complete, return code: ");
+  Serial.println(retCode);
+}
+
 void setup() {
-  delay(1000);
-  Serial.begin(115200);         // Start the Serial communication to send messages to the computer
-  delay(1000);
-  Serial.println('\n');
+  setupSerial(115200, 2000);
 
   state.registerVar(&cold_boot);
   cold_boot = !state.loadFromRTC();
@@ -174,27 +156,22 @@ void setup() {
   WiFi.begin(ssid, password);             // Connect to the network
 
   pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, HIGH);
 
-  Serial.print("Connecting to ");
-  Serial.print(ssid);
-  Serial.println(" ...");
-  while (!checkConnection()) {
-    delay(1000);
+  ip = waitForConnection([]() { blinkLed(500, LED_PIN, true); });
+  readNTP();
+  setSleepTime();
+  // For some reason my esp's internal clock during deep sleep seems to be slightly slow
+  // See https://forum.arduino.cc/index.php?topic=595499 post #7
+  if (wokeUpEarly()) {
+    Serial.println("Woke up early!");
+    ESP.deepSleep(sleepTime);
   }
 
   readMoisture();
   readDHT();
-  readNTP();
-
-  auto yml = createSensorYaml();
-  Serial.println("sending yml:");
-  Serial.println(yml);
-  HTTPClient http;
-  http.begin(request);
-  http.addHeader("Content-Type", "text/plain");
-  int retCode = http.POST(yml);
-  Serial.print("http request complete, return code: ");
-  Serial.println(retCode);
+  
+  sendYaml();
 
   ESP.deepSleep(sleepTime);
 }
