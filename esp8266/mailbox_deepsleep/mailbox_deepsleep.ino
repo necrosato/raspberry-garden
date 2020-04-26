@@ -12,8 +12,16 @@
 #include <stdlib.h>
 #include "config.h"
 #include "utils.h"
+
+#define ESP01
+
+#ifdef ESP01
 // This might need to be included when using some esp8266 arduino cores.
 #include "pins_arduino.h"
+#define LED_PIN 1
+#else
+#define LED_PIN BUILTIN_LED
+#endif
 
 #include <NTPClient.h>
 #include <WiFiUdp.h>
@@ -21,8 +29,6 @@
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org");
 
-// Pin definitions
-#define LED_PIN 1
 
 String ip;
 
