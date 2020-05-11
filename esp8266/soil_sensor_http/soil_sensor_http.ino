@@ -15,15 +15,13 @@
 // This might need to be included when using some esp8266 arduino cores.
 //#include "pins_arduino.h"
 
-// Persistent storage between deep sleep cycles
-#include <RTCVars.h>
-RTCVars state;
-int cold_boot;
+// Determine reset reason
+#include <user_interface.h>
 
 #include <NTPClient.h>
 #include <WiFiUdp.h>
 #define TIME_ZONE_OFFSET -25200
-#define SLEEP_MINUTE_INTERVAL 15
+#define SLEEP_MINUTE_INTERVAL 60
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org");
 int minute;
@@ -32,41 +30,41 @@ int second;
 int nextSecond;
 int sleepTime;
 
+// HC4051 multiplexer pin definitions
+#define HC4051_A D5
+#define HC4051_B D6
+#define HC4051_C D7
+
 // for DHT11 temp/humidity
 #include <DHT.h>
 #define DHT_TYPE DHT11
 
 // Pin definitions
-#define DHT_PIN D5
+#define DHT_PIN D2
 #define LED_PIN BUILTIN_LED
-#define MOISTURE_PIN A0
 
 // use temperature unit F if true, else C
 bool temperatureF = true;
 
-// Definte soil moisture sensor type
-//#define RESISTIVE_SENSOR
-#define CAPACITIVE_SENSOR
-
-// Define different calibration settings depending on soil sensor type
-#ifdef RESISTIVE_SENSOR
-int dryThresh = 700;
-int wetThresh = 400;
-#elif defined(CAPACITIVE_SENSOR)
+// These settings need to be set depending on the sensor type and sensitivity
+const char * soilSensorType = "Capacitive Soil 2.0";
 int dryThresh = 700;
 int wetThresh = 550;
-#endif
 
 DHT dht(DHT_PIN, DHT_TYPE);
 
 String ip;
 int moisture;
+int light;
 String waterLevel;
 float temperature;
 float humidity;
 
 void readMoisture() {
-  moisture = analogRead(MOISTURE_PIN);
+  digitalWrite(HC4051_A, LOW);
+  digitalWrite(HC4051_B, LOW);
+  digitalWrite(HC4051_C, LOW);
+  moisture = analogRead(A0);
   Serial.print("Moisture: ");
   Serial.println(moisture);
   if (moisture > dryThresh) {
@@ -78,6 +76,15 @@ void readMoisture() {
   }
 }
 
+void readLight() {
+  digitalWrite(HC4051_A, LOW);
+  digitalWrite(HC4051_B, LOW);
+  digitalWrite(HC4051_C, HIGH);
+  light = analogRead(A0);
+  Serial.print("Light: ");
+  Serial.println(light);
+}
+
 void readDHT() {
   temperature = dht.readTemperature(temperatureF);
   humidity = dht.readHumidity();
@@ -85,7 +92,7 @@ void readDHT() {
 
 void readNTP() {
   while (!timeClient.update()) {
-    blinkLed(250, LED_PIN);
+    blinkLed(250, LED_PIN, false);
   }
   minute = timeClient.getMinutes();
   second = timeClient.getSeconds();
@@ -96,9 +103,6 @@ void readNTP() {
 }
 
 bool wokeUpEarly() {
-  if (cold_boot) {
-    return false;
-  }
   int minutesLeft = nextMinute - minute;
   return !(minutesLeft == SLEEP_MINUTE_INTERVAL || SLEEP_MINUTE_INTERVAL == 1);
 }
@@ -119,6 +123,8 @@ String createSensorYaml() {
   addKeyVal(yml, "location", location);
   addKeyVal(yml, "ip-address", ip);
   addKeyVal(yml, "moisture", moisture);
+  addKeyVal(yml, "soil-sensor-type", soilSensorType);
+  addKeyVal(yml, "light", light);
   addKeyVal(yml, "temperature", temperature);
   addKeyVal(yml, "temperature-unit", temperatureF ? "F" : "C");
   addKeyVal(yml, "humidity", humidity);
@@ -143,9 +149,9 @@ void sendYaml() {
 void setup() {
   setupSerial(115200, 2000);
 
-  state.registerVar(&cold_boot);
-  cold_boot = !state.loadFromRTC();
-  state.saveToRTC();
+  auto resetInfo = ESP.getResetInfoPtr();
+  Serial.print("RESET REASON: ");
+  Serial.println(ESP.getResetReason());
 
   timeClient.begin();
   timeClient.setTimeOffset(TIME_ZONE_OFFSET);
@@ -155,20 +161,25 @@ void setup() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);             // Connect to the network
 
+  pinMode(HC4051_A, OUTPUT);
+  pinMode(HC4051_B, OUTPUT);
+  pinMode(HC4051_C, OUTPUT);
+
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, HIGH);
 
-  ip = waitForConnection([]() { blinkLed(500, LED_PIN, true); });
+  ip = waitForConnection([]() { blinkLed(500, LED_PIN, false); });
   readNTP();
   setSleepTime();
   // For some reason my esp's internal clock during deep sleep seems to be slightly slow
   // See https://forum.arduino.cc/index.php?topic=595499 post #7
-  if (wokeUpEarly()) {
+  if (resetInfo->reason == REASON_DEEP_SLEEP_AWAKE && wokeUpEarly()) {
     Serial.println("Woke up early!");
     ESP.deepSleep(sleepTime);
   }
 
   readMoisture();
+  readLight();
   readDHT();
   
   sendYaml();
