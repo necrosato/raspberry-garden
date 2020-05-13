@@ -21,7 +21,7 @@
 #include <NTPClient.h>
 #include <WiFiUdp.h>
 #define TIME_ZONE_OFFSET -25200
-#define SLEEP_MINUTE_INTERVAL 60
+#define SLEEP_MINUTE_INTERVAL 30
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org");
 int minute;
@@ -48,14 +48,17 @@ bool temperatureF = true;
 
 // These settings need to be set depending on the sensor type and sensitivity
 const char * soilSensorType = "Capacitive Soil 2.0";
-int dryThresh = 700;
-int wetThresh = 550;
+int dryThresh = 650;
+int wetThresh = 500;
 
 DHT dht(DHT_PIN, DHT_TYPE);
 
 String ip;
 int moisture;
 int light;
+int batteryRaw;
+float batteryPercent;
+float batteryVoltage;
 String waterLevel;
 float temperature;
 float humidity;
@@ -64,6 +67,7 @@ void readMoisture() {
   digitalWrite(HC4051_A, LOW);
   digitalWrite(HC4051_B, LOW);
   digitalWrite(HC4051_C, LOW);
+  delay(10);
   moisture = analogRead(A0);
   Serial.print("Moisture: ");
   Serial.println(moisture);
@@ -78,11 +82,32 @@ void readMoisture() {
 
 void readLight() {
   digitalWrite(HC4051_A, LOW);
-  digitalWrite(HC4051_B, LOW);
+  digitalWrite(HC4051_B, HIGH);
   digitalWrite(HC4051_C, HIGH);
+  delay(10);
   light = analogRead(A0);
   Serial.print("Light: ");
   Serial.println(light);
+}
+
+void readBattery() {
+  digitalWrite(HC4051_A, HIGH);
+  digitalWrite(HC4051_B, LOW);
+  digitalWrite(HC4051_C, LOW);
+  delay(10);
+  batteryRaw = analogRead(A0);
+  Serial.print("Battery Raw: ");
+  Serial.println(batteryRaw);
+  
+  int voltage = map(batteryRaw, 0, 1024, 0, 420);
+  batteryVoltage = voltage / 100.0;
+  Serial.print("Battery Voltage: ");
+  Serial.println(batteryVoltage);
+
+  int min_voltage = 330;
+  batteryPercent = voltage < min_voltage ? 0 : map(voltage, min_voltage, 420, 0, 1000) / 10.0;
+  Serial.print("Battery Percent: ");
+  Serial.println(batteryPercent);
 }
 
 void readDHT() {
@@ -131,6 +156,9 @@ String createSensorYaml() {
   addKeyVal(yml, "water-level", waterLevel);
   addKeyVal(yml, "date", timeClient.getFormattedDate());
   addKeyVal(yml, "time", timeClient.getFormattedTime());
+  addKeyVal(yml, "battery-raw", batteryRaw);
+  addKeyVal(yml, "battery-voltage", batteryVoltage);
+  addKeyVal(yml, "battery-percent", batteryPercent);
   return yml;
 }
 
@@ -181,6 +209,7 @@ void setup() {
   readMoisture();
   readLight();
   readDHT();
+  readBattery();
   
   sendYaml();
 

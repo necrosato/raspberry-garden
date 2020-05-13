@@ -1,3 +1,4 @@
 *.swp
 *config.h
 *.pyc
+*.DS_Store
