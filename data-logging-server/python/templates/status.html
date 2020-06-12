@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Status</title>
+</head>
+<body>
+    <h1>Status</h1>
+
+    <ul id="locations">
+    {% for location in locations %}
+        <li>
+        {% for key in location %}
+        <a href="status?location={{ location['location'] }}">{{ key }}</a>: {{ location[key] }}
+            </br>
+        {% endfor %}
+        </li>
+    {% endfor %}
+    </ul>
+    <p>{{ response }}</p>
+
+
+</body>
+</html>

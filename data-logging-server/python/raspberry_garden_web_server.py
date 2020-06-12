@@ -1,5 +1,5 @@
 import os
-from flask import Flask, Response, request
+from flask import Flask, Response, request, render_template
 import datetime
 import pytz
 import threading
@@ -57,10 +57,11 @@ class RaspberryGardenWebServer:
         self.add_endpoint(endpoint='/',
                 endpoint_name='index', handler=self.index)
         self.add_endpoint(endpoint='/status',
-                endpoint_name='status', handler=self.status)
+                endpoint_name='status', handler=self.status, methods=['GET'])
         self.add_endpoint(endpoint='/update',
                 endpoint_name='update', handler=self.update, methods=['POST'])
-
+        self.add_endpoint(endpoint='/locations',
+                endpoint_name='locations', handler=self.locations)
 
     def index(self):
         '''
@@ -69,23 +70,51 @@ class RaspberryGardenWebServer:
         return self.status()
 
 
+    def getLocations(self):
+        ''' return a list of location names '''
+        locations = []
+        for path in os.listdir(ymlDir):
+            full_path = os.path.join(ymlDir, path)
+            if os.path.isdir(full_path):
+                locations.append(path)
+        return locations
+
+
+    def getLocationPaths(self, locationNames=None):
+        ''' return a list of location directory paths, only return subset of locationNames if given '''
+        locations = []
+        toCheck = locationNames
+        if locationNames is None:
+            toCheck = os.listdir(ymlDir)
+        for path in toCheck:
+            full_path = os.path.join(ymlDir, path)
+            if os.path.isdir(full_path):
+                locations.append(full_path)
+        return locations
+
+
     def status(self):
         '''
         Returns node location and arm status:
         '''
-        response = ''
-        for path in os.listdir(ymlDir):
-            full_path = os.path.join(ymlDir, path)
-            if os.path.isdir(full_path):
-                response += '---</br>'
-                latest_file = max([os.path.join(full_path, f) for f in os.listdir(full_path)], key=os.path.getctime)
-                with open(latest_file, 'r') as f:
-                    yml = yaml.load(f)
-                    for key in yml:
-                        response += key + ': '
-                        response += str(yml[key]) + '</br>'
+        location = request.args.get('location')
+        if location is not None:
+            locationPaths = self.getLocationPaths([location]) 
+        else:
+            locationPaths = self.getLocationPaths()
+
+        locations = []
+        for path in locationPaths:
+            latest_file = max([os.path.join(path, f) for f in os.listdir(path)], key=os.path.getctime)
+            with open(latest_file, 'r') as f:
+                yml = yaml.load(f)
+                locations.append(yml)
                         
-        return response
+        return render_template('status.html', locations=locations)
+
+
+    def locations(self):
+        return render_template('locations.html', locations=self.getLocations())
 
 
     def update(self):

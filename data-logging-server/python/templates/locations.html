@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Locations</title>
+</head>
+<body>
+    <h1>Locations</h1>
+
+    <ul id="locations">
+    {% for location in locations %}
+        <li><a href="status?location={{ location }}">{{ location }}</a></li>
+    {% endfor %}
+    </ul>
+
+
+</body>
+</html>
