@@ -46,10 +46,7 @@ int sleepTime;
 // use temperature unit F if true, else C
 bool temperatureF = true;
 
-// These settings need to be set depending on the sensor type and sensitivity
 const char * soilSensorType = "Capacitive Soil 2.0";
-int dryThresh = 650;
-int wetThresh = 500;
 
 DHT dht(DHT_PIN, DHT_TYPE);
 
@@ -59,7 +56,6 @@ int light;
 int batteryRaw;
 float batteryPercent;
 float batteryVoltage;
-String waterLevel;
 float temperature;
 float humidity;
 
@@ -71,13 +67,6 @@ void readMoisture() {
   moisture = analogRead(A0);
   Serial.print("Moisture: ");
   Serial.println(moisture);
-  if (moisture > dryThresh) {
-    waterLevel = "DRY";
-  } else if (moisture < wetThresh) {
-    waterLevel = "WET";
-  } else {
-    waterLevel = "OK";
-  }
 }
 
 void readLight() {
@@ -153,7 +142,6 @@ String createSensorYaml() {
   addKeyVal(yml, "temperature", temperature);
   addKeyVal(yml, "temperature-unit", temperatureF ? "F" : "C");
   addKeyVal(yml, "humidity", humidity);
-  addKeyVal(yml, "water-level", waterLevel);
   addKeyVal(yml, "date", timeClient.getFormattedDate());
   addKeyVal(yml, "time", timeClient.getFormattedTime());
   addKeyVal(yml, "battery-raw", batteryRaw);
