@@ -10,7 +10,7 @@
     {% for location in locations %}
         <li>
         {% for key in location %}
-        <a href="status?location={{ location['location'] }}">{{ key }}</a>: {{ location[key] }}
+        <a href="history?location={{ location['location'] }}&key={{ key }}">{{ key }}</a>: {{ location[key] }}
             </br>
         {% endfor %}
         </li>

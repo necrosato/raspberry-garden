@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>History</title>
+</head>
+<body>
+    <h1>History</h1>
+    <h2>{{ location }} : {{ key }}</h2>
+
+    <ul id="vals">
+    {% for val in vals %}
+        <li>
+          {{ val[0] }} : {{ val[1] }}
+          <br>
+        </li>
+    {% endfor %}
+    </ul>
+    <p>{{ response }}</p>
+
+
+</body>
+</html>

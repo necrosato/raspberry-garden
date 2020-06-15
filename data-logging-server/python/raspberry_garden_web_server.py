@@ -10,6 +10,7 @@ import pprint
 
 ymlDir = os.path.expanduser('~/.raspberry-garden-data/')
 
+
 class EndpointAction:
     '''
     action is expected to return a valid response
@@ -52,6 +53,11 @@ class RaspberryGardenWebServer:
 
         if not os.path.exists(ymlDir):
             os.makedirs(ymlDir)
+
+        ''' Map of location name to list of data points '''
+        self.data = {}
+
+        self.reloadData()
   
         # Add endpoints
         self.add_endpoint(endpoint='/',
@@ -62,6 +68,8 @@ class RaspberryGardenWebServer:
                 endpoint_name='update', handler=self.update, methods=['POST'])
         self.add_endpoint(endpoint='/locations',
                 endpoint_name='locations', handler=self.locations)
+        self.add_endpoint(endpoint='/history',
+                endpoint_name='history', handler=self.history)
 
     def index(self):
         '''
@@ -70,27 +78,15 @@ class RaspberryGardenWebServer:
         return self.status()
 
 
-    def getLocations(self):
-        ''' return a list of location names '''
-        locations = []
-        for path in os.listdir(ymlDir):
-            full_path = os.path.join(ymlDir, path)
-            if os.path.isdir(full_path):
-                locations.append(path)
-        return locations
-
-
-    def getLocationPaths(self, locationNames=None):
-        ''' return a list of location directory paths, only return subset of locationNames if given '''
-        locations = []
-        toCheck = locationNames
-        if locationNames is None:
-            toCheck = os.listdir(ymlDir)
-        for path in toCheck:
-            full_path = os.path.join(ymlDir, path)
-            if os.path.isdir(full_path):
-                locations.append(full_path)
-        return locations
+    def history(self):
+        ''' returns a list of historical values for location and given keys, most recent first '''
+        location = request.args.get('location')
+        key = request.args.get('key')
+        vals = []
+        for data_entry in reversed(self.data[location]):
+            if key in data_entry and 'date' in data_entry:
+                vals.append((data_entry['date'], data_entry[key]))
+        return render_template('history.html', location=location, key=key, vals=vals)
 
 
     def status(self):
@@ -98,37 +94,56 @@ class RaspberryGardenWebServer:
         Returns node location and arm status:
         '''
         location = request.args.get('location')
-        if location is not None:
-            locationPaths = self.getLocationPaths([location]) 
-        else:
-            locationPaths = self.getLocationPaths()
+        toCheck = [location] 
+        if location is None:
+            toCheck = sorted(self.data.keys())
 
         locations = []
-        for path in locationPaths:
-            latest_file = max([os.path.join(path, f) for f in os.listdir(path)], key=os.path.getctime)
-            with open(latest_file, 'r') as f:
-                yml = yaml.load(f)
-                locations.append(yml)
+        for l in toCheck:
+            locations.append(self.data[l][-1])
                         
         return render_template('status.html', locations=locations)
 
 
     def locations(self):
-        return render_template('locations.html', locations=self.getLocations())
+        return render_template('locations.html', locations=sorted(self.data.keys()))
 
+
+    def reloadData(self):
+        self.data = {}
+        for path in os.listdir(ymlDir):
+            full_path = os.path.join(ymlDir, path)
+            if os.path.isdir(full_path):
+                self.data[path] = []
+                for update in sorted(os.listdir(full_path)):
+                    update_path = os.path.join(full_path, update)
+                    print('Loading {}'.format(update_path))
+                    with open(update_path, 'r') as f:
+                        yml = yaml.load(f.read())
+                        self.data[path].append(yml)
+ 
 
     def update(self):
-        dt = datetime.datetime.now(pytz.timezone('America/Los_Angeles'))
         ymlStr = request.data.decode('utf-8')
         yml = yaml.load(ymlStr);
-        locationDir = ymlDir + yml['location'] + '/';
+        location = yml['location']
+        dt = yml['date']
+
+        # Save it to a file
+        locationDir = ymlDir + location + '/';
         if not os.path.exists(locationDir):
             os.makedirs(locationDir)
-        ymlFileName = locationDir + yml['location'] + '_' + str(dt.date()) + '_' + str(dt.time()) + '.yml';
+        ymlFileName = locationDir + location + '_' + str(dt.date()) + '_' + str(dt.time()) + '.yml';
         with open(ymlFileName, 'w') as f:
             f.write(ymlStr);
+
+        # Append to data
+        if location not in self.data:
+            self.data[location] = []
+        self.data[location].append(yml)
+
         print(yml)
-        return ''
+        return 'Update Received'
 
 
     def run(self, port):
