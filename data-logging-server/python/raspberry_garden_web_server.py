@@ -10,12 +10,15 @@ import pprint
 
 from bokeh.models import (HoverTool, FactorRange, Plot, LinearAxis, Grid,
                           Range1d)
-from bokeh.models.glyphs import VBar
+from bokeh.models.glyphs import VBar, Line, Circle
 from bokeh.plotting import figure
 from bokeh.embed import components
 from bokeh.models.sources import ColumnDataSource
 
 ymlDir = os.path.expanduser('~/.raspberry-garden-data/')
+
+def create_hover_tool(key):
+    return HoverTool(tooltips=[('date', '@date_str'), (key, '@' + key)])
 
 
 def create_bar_chart(data, title, x_name, y_name, hover_tool=None,
@@ -26,7 +29,7 @@ def create_bar_chart(data, title, x_name, y_name, hover_tool=None,
     """
     source = ColumnDataSource(data)
     xdr = Range1d(start=min(data[x_name]),end=max(data[x_name]))
-    #xdr = Range1d(start=datetime.datetime.now()-datetime.timedelta(days=7), end=datetime.datetime.now())
+    #xdr = Range1d(start=datetime.datetime.now()-datetime.timedelta(days=1), end=datetime.datetime.now())
     ydr = Range1d(start=min(data[y_name]),end=max(data[y_name]))
 
     tools = []
@@ -37,9 +40,11 @@ def create_bar_chart(data, title, x_name, y_name, hover_tool=None,
                   plot_height=height, min_border=0, toolbar_location="above", tools=tools,
                   sizing_mode='scale_width', outline_line_color="#666666", x_axis_type='datetime')
 
-    glyph = VBar(x=x_name, top=y_name, bottom=0, width=.8,
-                 fill_color="#e12127")
-    plot.add_glyph(source, glyph)
+    #glyph = VBar(x=x_name, top=y_name, bottom=0, width=datetime.timedelta(minutes=30), fill_color='#e121217')
+    line_glyph = Line(x=x_name, y=y_name, line_width=2, line_color="#e12127")
+    circle_glyph = Circle(x=x_name, y=y_name, size=3, line_width=2, line_color="#e12127", fill_color='#e12127')
+    plot.add_glyph(source, line_glyph)
+    plot.add_glyph(source, circle_glyph)
 
     xaxis = LinearAxis()
     yaxis = LinearAxis()
@@ -147,7 +152,8 @@ class RaspberryGardenWebServer:
                 if vals[key] is not 'nan':
                     vals['date'].append(data_entry['date'])
                     vals[key].append(data_entry[key])
-        plot = create_bar_chart(vals, location, 'date', key)
+        vals['date_str'] = [str(d) for d in vals['date']]
+        plot = create_bar_chart(vals, location, 'date', key, hover_tool=create_hover_tool(key))
         plot_script, plot_div = components(plot)
         return render_template('chart.html', location=location, key=key, vals=vals, plot_script=plot_script, plot_div=plot_div)
 
