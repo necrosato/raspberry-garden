@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Chart</title>
+</head>
+<body>
+    <h1>Chart</h1>
+    <h2>{{ location }} : {{ key }}</h2>
+
+    {{ plot_div|safe }}
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-1.4.0.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-widgets-1.4.0.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.bokeh.org/bokeh/release/bokeh-tables-1.4.0.min.js" crossorigin="anonymous"></script>
+    {{ plot_script|safe }}
+
+
+</body>
+</html>

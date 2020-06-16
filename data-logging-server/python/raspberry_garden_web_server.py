@@ -8,7 +8,53 @@ import yaml
 import raspberry_garden_logging
 import pprint
 
+from bokeh.models import (HoverTool, FactorRange, Plot, LinearAxis, Grid,
+                          Range1d)
+from bokeh.models.glyphs import VBar
+from bokeh.plotting import figure
+from bokeh.embed import components
+from bokeh.models.sources import ColumnDataSource
+
 ymlDir = os.path.expanduser('~/.raspberry-garden-data/')
+
+
+def create_bar_chart(data, title, x_name, y_name, hover_tool=None,
+                     width=1200, height=300):
+    """Creates a bar chart plot with the exact styling for the centcom
+       dashboard. Pass in data as a dictionary, desired plot title,
+       name of x axis, y axis and the hover tool HTML.
+    """
+    source = ColumnDataSource(data)
+    xdr = Range1d(start=min(data[x_name]),end=max(data[x_name]))
+    #xdr = Range1d(start=datetime.datetime.now()-datetime.timedelta(days=7), end=datetime.datetime.now())
+    ydr = Range1d(start=min(data[y_name]),end=max(data[y_name]))
+
+    tools = []
+    if hover_tool:
+        tools = [hover_tool,]
+
+    plot = figure(title=title, x_range=xdr, y_range=ydr, plot_width=width,
+                  plot_height=height, min_border=0, toolbar_location="above", tools=tools,
+                  sizing_mode='scale_width', outline_line_color="#666666", x_axis_type='datetime')
+
+    glyph = VBar(x=x_name, top=y_name, bottom=0, width=.8,
+                 fill_color="#e12127")
+    plot.add_glyph(source, glyph)
+
+    xaxis = LinearAxis()
+    yaxis = LinearAxis()
+
+    plot.add_layout(Grid(dimension=0, ticker=xaxis.ticker))
+    plot.add_layout(Grid(dimension=1, ticker=yaxis.ticker))
+    plot.toolbar.logo = None
+    plot.min_border_top = 0
+    plot.xgrid.grid_line_color = None
+    plot.ygrid.grid_line_color = "#999999"
+    plot.yaxis.axis_label = y_name
+    plot.ygrid.grid_line_alpha = 0.1
+    plot.xaxis.axis_label = x_name 
+    plot.xaxis.major_label_orientation = 1
+    return plot
 
 
 class EndpointAction:
@@ -70,6 +116,8 @@ class RaspberryGardenWebServer:
                 endpoint_name='locations', handler=self.locations)
         self.add_endpoint(endpoint='/history',
                 endpoint_name='history', handler=self.history)
+        self.add_endpoint(endpoint='/chart',
+                endpoint_name='chart', handler=self.chart)
 
     def index(self):
         '''
@@ -79,7 +127,7 @@ class RaspberryGardenWebServer:
 
 
     def history(self):
-        ''' returns a list of historical values for location and given keys, most recent first '''
+        ''' returns a list of historical values for location and keys, most recent first with date of values'''
         location = request.args.get('location')
         key = request.args.get('key')
         vals = []
@@ -87,6 +135,21 @@ class RaspberryGardenWebServer:
             if key in data_entry and 'date' in data_entry:
                 vals.append((data_entry['date'], data_entry[key]))
         return render_template('history.html', location=location, key=key, vals=vals)
+
+
+    def chart(self):
+        ''' returns a graph of values for location and given key, ordered by date'''
+        location = request.args.get('location')
+        key = request.args.get('key')
+        vals = {'date': [], key: []}
+        for data_entry in reversed(self.data[location]):
+            if key in data_entry and 'date' in data_entry:
+                if vals[key] is not 'nan':
+                    vals['date'].append(data_entry['date'])
+                    vals[key].append(data_entry[key])
+        plot = create_bar_chart(vals, location, 'date', key)
+        plot_script, plot_div = components(plot)
+        return render_template('chart.html', location=location, key=key, vals=vals, plot_script=plot_script, plot_div=plot_div)
 
 
     def status(self):

@@ -6,7 +6,7 @@
 <body>
     <h1>History</h1>
     <h2>{{ location }} : {{ key }}</h2>
-
+    <a href="chart?location={{ location }}&key={{ key }}">view chart</a>
     <ul id="vals">
     {% for val in vals %}
         <li>
