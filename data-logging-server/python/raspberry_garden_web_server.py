@@ -22,14 +22,18 @@ def create_hover_tool(key):
 
 
 def create_bar_chart(data, title, x_name, y_name, hover_tool=None,
-                     width=1200, height=300):
+                     width=1200, height=300, days=None):
     """Creates a bar chart plot with the exact styling for the centcom
        dashboard. Pass in data as a dictionary, desired plot title,
        name of x axis, y axis and the hover tool HTML.
     """
     source = ColumnDataSource(data)
-    xdr = Range1d(start=min(data[x_name]),end=max(data[x_name]))
-    #xdr = Range1d(start=datetime.datetime.now()-datetime.timedelta(days=1), end=datetime.datetime.now())
+    date_end = max(data[x_name])
+    if days is None:
+        date_start = min(data[x_name])
+    else:
+        date_start = date_end - datetime.timedelta(days=days)
+    xdr = Range1d(start=date_start, end=date_end)
     ydr = Range1d(start=min(data[y_name]),end=max(data[y_name]))
 
     tools = []
@@ -40,7 +44,6 @@ def create_bar_chart(data, title, x_name, y_name, hover_tool=None,
                   plot_height=height, min_border=0, toolbar_location="above", tools=tools,
                   sizing_mode='scale_width', outline_line_color="#666666", x_axis_type='datetime')
 
-    #glyph = VBar(x=x_name, top=y_name, bottom=0, width=datetime.timedelta(minutes=30), fill_color='#e121217')
     line_glyph = Line(x=x_name, y=y_name, line_width=2, line_color="#e12127")
     circle_glyph = Circle(x=x_name, y=y_name, size=3, line_width=2, line_color="#e12127", fill_color='#e12127')
     plot.add_glyph(source, line_glyph)
@@ -145,6 +148,11 @@ class RaspberryGardenWebServer:
     def chart(self):
         ''' returns a graph of values for location and given key, ordered by date'''
         location = request.args.get('location')
+        days = request.args.get('days')
+        if days == '':
+            days = None
+        if days is not None:
+            days=int(days)
         key = request.args.get('key')
         vals = {'date': [], key: []}
         for data_entry in reversed(self.data[location]):
@@ -153,9 +161,9 @@ class RaspberryGardenWebServer:
                     vals['date'].append(data_entry['date'])
                     vals[key].append(data_entry[key])
         vals['date_str'] = [str(d) for d in vals['date']]
-        plot = create_bar_chart(vals, location, 'date', key, hover_tool=create_hover_tool(key))
+        plot = create_bar_chart(vals, location, 'date', key, hover_tool=create_hover_tool(key), days=days)
         plot_script, plot_div = components(plot)
-        return render_template('chart.html', location=location, key=key, vals=vals, plot_script=plot_script, plot_div=plot_div)
+        return render_template('chart.html', location=location, key=key, vals=vals, plot_script=plot_script, plot_div=plot_div, days=days)
 
 
     def status(self):
