@@ -157,7 +157,7 @@ class RaspberryGardenWebServer:
         vals = {'date': [], key: []}
         for data_entry in reversed(self.data[location]):
             if key in data_entry and 'date' in data_entry:
-                if vals[key] is not 'nan':
+                if data_entry[key] != 'nan':
                     vals['date'].append(data_entry['date'])
                     vals[key].append(data_entry[key])
         vals['date_str'] = [str(d) for d in vals['date']]
