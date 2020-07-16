@@ -147,6 +147,7 @@ String createSensorYaml() {
   addKeyVal(yml, "battery-raw", batteryRaw);
   addKeyVal(yml, "battery-voltage", batteryVoltage);
   addKeyVal(yml, "battery-percent", batteryPercent);
+  addKeyVal(yml, "sensor-id", sensor_id);
   return yml;
 }
 
