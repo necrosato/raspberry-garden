@@ -148,6 +148,7 @@ String createSensorYaml() {
   addKeyVal(yml, "battery-voltage", batteryVoltage);
   addKeyVal(yml, "battery-percent", batteryPercent);
   addKeyVal(yml, "sensor-id", sensor_id);
+  addKeyVal(yml, "mac-address", WiFi.macAddress());
   return yml;
 }
 
