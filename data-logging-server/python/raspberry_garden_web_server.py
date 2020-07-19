@@ -219,7 +219,7 @@ class RaspberryGardenWebServer:
     def update(self):
         ymlStr = request.data.decode('utf-8')
         yml = yaml.load(ymlStr)
-        location = sensors[yml['sensor-id']]
+        location = self.sensors[yml['sensor-id']]
         yml['location'] = location
         dt = yml['date']
 
