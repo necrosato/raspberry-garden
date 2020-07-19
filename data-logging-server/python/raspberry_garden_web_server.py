@@ -196,7 +196,6 @@ class RaspberryGardenWebServer:
             print(self.sensors)
 
 
-
     def reloadData(self):
         self.data = {}
         for path in os.listdir(ymlDir):

@@ -134,7 +134,6 @@ void setSleepTime() {
 
 String createSensorYaml() {
   String yml = "---\n";
-  addKeyVal(yml, "location", location);
   addKeyVal(yml, "ip-address", ip);
   addKeyVal(yml, "moisture", moisture);
   addKeyVal(yml, "soil-sensor-type", soilSensorType);
