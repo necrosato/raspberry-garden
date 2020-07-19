@@ -110,8 +110,10 @@ class RaspberryGardenWebServer:
 
         ''' Map of location name to list of data points '''
         self.data = {}
-
+        ''' Map of sensor ids to location '''
+        self.sensors = {}
         self.reloadData()
+        self.reloadSensors()
   
         # Add endpoints
         self.add_endpoint(endpoint='/',
@@ -126,6 +128,8 @@ class RaspberryGardenWebServer:
                 endpoint_name='history', handler=self.history)
         self.add_endpoint(endpoint='/chart',
                 endpoint_name='chart', handler=self.chart)
+        self.add_endpoint(endpoint='/reload',
+                endpoint_name='reload', handler=self.reload)
 
     def index(self):
         '''
@@ -186,6 +190,13 @@ class RaspberryGardenWebServer:
         return render_template('locations.html', locations=sorted(self.data.keys()))
 
 
+    def reloadSensors(self):
+        with open('./sensors.yml', 'r') as f:
+            self.sensors = yaml.load(f.read())
+            print(self.sensors)
+
+
+
     def reloadData(self):
         self.data = {}
         for path in os.listdir(ymlDir):
@@ -198,21 +209,28 @@ class RaspberryGardenWebServer:
                     with open(update_path, 'r') as f:
                         yml = yaml.load(f.read())
                         self.data[path].append(yml)
+
+
+    def reload(self):
+        self.reloadData()
+        self.reloadSensors()
+        return "Reloaded data and sensor locations"
  
 
     def update(self):
         ymlStr = request.data.decode('utf-8')
-        yml = yaml.load(ymlStr);
-        location = yml['location']
+        yml = yaml.load(ymlStr)
+        location = sensors[yml['sensor-id']]
+        yml['location'] = location
         dt = yml['date']
 
         # Save it to a file
-        locationDir = ymlDir + location + '/';
+        locationDir = ymlDir + location + '/'
         if not os.path.exists(locationDir):
             os.makedirs(locationDir)
-        ymlFileName = locationDir + location + '_' + str(dt.date()) + '_' + str(dt.time()) + '.yml';
+        ymlFileName = locationDir + location + '_' + str(dt.date()) + '_' + str(dt.time()) + '.yml'
         with open(ymlFileName, 'w') as f:
-            f.write(ymlStr);
+            f.write(ymlStr)
 
         # Append to data
         if location not in self.data:
