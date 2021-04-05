@@ -229,7 +229,7 @@ class RaspberryGardenWebServer:
             os.makedirs(locationDir)
         ymlFileName = locationDir + location + '_' + str(dt.date()) + '_' + str(dt.time()) + '.yml'
         with open(ymlFileName, 'w') as f:
-            f.write(ymlStr)
+            f.write(yaml.dump(yml, sort_keys=True))
 
         # Append to data
         if location not in self.data:
