@@ -43,6 +43,7 @@ String createSensorYaml() {
   addKeyVal(yml, "location", location);
   addKeyVal(yml, "ip-address", ip);
   addKeyVal(yml, "mailbox-opened", true);
+  addKeyVal(yml, "sensor-id", "esp01-1");
   addKeyVal(yml, "date", timeClient.getFormattedDate());
   addKeyVal(yml, "time", timeClient.getFormattedTime());
   return yml;
